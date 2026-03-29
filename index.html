@@ -342,11 +342,11 @@ function startHost() {
   createPeer();
   channel = pc.createDataChannel('chat');
   setupChannel();
+  listenForSignals();
   pc.createOffer().then(offer => {
     pc.setLocalDescription(offer);
     sendSignal('offer', offer);
   });
-  listenForSignals();
 }
 
 function startJoiner() {
