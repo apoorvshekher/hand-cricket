@@ -21,6 +21,7 @@
   </div>
   <div>
     <textarea id="signalOut" readonly placeholder="Copy this offer/answer to other player"></textarea>
+    <button onclick="copySignalOut()">Copy Code</button>
   </div>
   <div>
     <input id="msg" placeholder="Type message...">
@@ -31,6 +32,14 @@
 <script>
 let pc, channel;
 
+function copySignalOut() {
+  const ta = document.getElementById('signalOut');
+  ta.select();
+  ta.setSelectionRange(0, 99999); // For mobile
+  document.execCommand('copy');
+  log('📋 Copied offer/answer to clipboard.');
+}
+
 
 function log(msg) {
   document.getElementById('log').textContent += msg + '\n';
@@ -38,7 +47,9 @@ function log(msg) {
 }
 
 function createPeer() {
-  pc = new RTCPeerConnection({ iceServers: [] });
+  pc = new RTCPeerConnection({ iceServers: [
+    { urls: 'stun:stun.l.google.com:19302' }
+  ] });
   pc.onicecandidate = e => {
     if (e.candidate === null) {
       document.getElementById('signalOut').value = JSON.stringify(pc.localDescription);
