@@ -31,8 +31,10 @@
 <script>
 let pc, channel;
 
+
 function log(msg) {
   document.getElementById('log').textContent += msg + '\n';
+  document.getElementById('log').scrollTop = document.getElementById('log').scrollHeight;
 }
 
 function createPeer() {
@@ -45,6 +47,15 @@ function createPeer() {
   pc.ondatachannel = e => {
     channel = e.channel;
     setupChannel();
+  };
+  pc.onconnectionstatechange = () => {
+    log('Connection state: ' + pc.connectionState);
+    if (pc.connectionState === 'failed' || pc.connectionState === 'disconnected') {
+      log('❌ Connection failed or disconnected. Try again.');
+    }
+    if (pc.connectionState === 'connected') {
+      log('🎉 Peers are fully connected!');
+    }
   };
 }
 
@@ -66,12 +77,28 @@ function createAnswer() {
 
 function setRemote() {
   const desc = document.getElementById('signalIn').value;
-  if (!desc) return alert('Paste offer/answer!');
-  pc.setRemoteDescription(new RTCSessionDescription(JSON.parse(desc)));
+  if (!desc) {
+    log('⚠️ Please paste offer/answer before setting remote.');
+    alert('Paste offer/answer!');
+    return;
+  }
+  try {
+    pc.setRemoteDescription(new RTCSessionDescription(JSON.parse(desc)))
+      .then(() => log('✅ Remote description set.'))
+      .catch(e => {
+        log('❌ Error setting remote: ' + e);
+        alert('Error setting remote: ' + e);
+      });
+  } catch (e) {
+    log('❌ Invalid offer/answer format.');
+    alert('Invalid offer/answer format!');
+  }
 }
 
 function setupChannel() {
-  channel.onopen = () => log('✅ DataChannel open!');
+  channel.onopen = () => log('✅ DataChannel open! You can now chat.');
+  channel.onclose = () => log('⚠️ DataChannel closed.');
+  channel.onerror = e => log('❌ DataChannel error: ' + e);
   channel.onmessage = e => log('Peer: ' + e.data);
 }
 
