@@ -210,8 +210,8 @@
       <div id="gameLog"></div>
     </div>
     <div style="margin-top:18px;">
-      <input id="msg" placeholder="Type message...">
-      <button onclick="sendMsg()">Send</button>
+      <input id="msg" placeholder="Type message..." disabled>
+      <button id="sendBtn" onclick="sendMsg()" disabled>Send</button>
     </div>
     <div id="log"></div>
   </div>
@@ -285,17 +285,20 @@ function createPeer() {
 
 function sendSignal(type, data) {
   if (!roomId) return;
+  // Always write to your own role's path
   db.ref('rooms/' + roomId + '/' + (isRoomCreator ? 'host' : 'joiner')).push({ type, data });
 }
 
 function listenForSignals() {
   if (!roomId) return;
+  // Always listen to the other side's path
   const peerKey = isRoomCreator ? 'joiner' : 'host';
   db.ref('rooms/' + roomId + '/' + peerKey).on('child_added', snap => {
     const msg = snap.val();
+    if (!msg) return;
     if (msg.type === 'offer') {
       pc.setRemoteDescription(new RTCSessionDescription(msg.data));
-      createAnswerSignal();
+      if (!isRoomCreator) createAnswerSignal();
     } else if (msg.type === 'answer') {
       pc.setRemoteDescription(new RTCSessionDescription(msg.data));
     } else if (msg.type === 'candidate') {
@@ -328,6 +331,10 @@ function joinRoom() {
   document.getElementById('roomInput').disabled = true;
   document.getElementById('roomStatus').textContent = 'Joining room: ' + roomId;
   document.getElementById('roomSection').style.display = 'none';
+  // Show connecting UI
+  document.getElementById('game').style.display = '';
+  document.getElementById('turnInfo').textContent = 'Connecting to host...';
+  document.getElementById('fingers').style.display = 'none';
   startJoiner();
 }
 
@@ -413,14 +420,25 @@ function setupChannel() {
     log('✅ DataChannel open! You can now chat.');
     document.getElementById('game').style.display = '';
     document.getElementById('turnInfo').textContent = 'Waiting for peer...';
+    // Enable chat input and send button
+    document.getElementById('msg').disabled = false;
+    document.getElementById('sendBtn').disabled = false;
     // Decide who bats first: host bats first
     myTurn = isHost = (channel.label === 'chat');
     updateTurnInfo();
     if (myTurn) logGame('You bat first!');
     else logGame('Peer bats first!');
   };
-  channel.onclose = () => log('⚠️ DataChannel closed.');
-  channel.onerror = e => log('❌ DataChannel error: ' + e);
+  channel.onclose = () => {
+    log('⚠️ DataChannel closed.');
+    document.getElementById('msg').disabled = true;
+    document.getElementById('sendBtn').disabled = true;
+  };
+  channel.onerror = e => {
+    log('❌ DataChannel error: ' + e);
+    document.getElementById('msg').disabled = true;
+    document.getElementById('sendBtn').disabled = true;
+  };
   channel.onmessage = e => handleGameMessage(e.data);
 }
 
