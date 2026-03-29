@@ -1,80 +1,86 @@
 <!DOCTYPE html>
 <html>
-<head><title>Hand Cricket P2P Simple</title>
-<style>body{font-family:Arial;text-align:center;font-size:20px;}
-button{padding:15px;font-size:20px;margin:10px;cursor:pointer;}
-.finger{background:#4CAF50;color:white;border:none;border-radius:50px;width:70px;height:70px;font-size:30px;}
-textarea{width:90%;height:100px;font-family:monospace;}
-#status{color:#2196F3;font-weight:bold;}
-</style>
+<head>
+  <title>P2P WebRTC Demo</title>
+  <style>
+    body { font-family: sans-serif; background: #f8f8f8; text-align: center; margin: 0; padding: 40px; }
+    textarea { width: 90%; height: 80px; margin: 10px 0; font-size: 16px; }
+    button { font-size: 18px; padding: 10px 20px; margin: 10px; }
+    #log { background: #222; color: #fff; padding: 10px; min-height: 60px; margin: 20px 0; border-radius: 8px; }
+  </style>
 </head>
 <body>
-<h1>🦗 Hand Cricket P2P</h1>
-<div id="status">Player 1: Copy your ID → Player 2: Enter it</div>
-<input id="myId" readonly style="font-size:24px;background:gold;padding:10px;width:300px;">
-<input id="friendId" placeholder="Enter friend's 6-digit ID">
-<button onclick="connect()">Connect to Friend</button>
-
-<div style="margin:40px 0">
-<h3>Show Finger:</h3>
-<button class="finger" onclick="show(1)">1️⃣</button><button class="finger" onclick="show(2)">2️⃣</button>
-<button class="finger" onclick="show(3)">3️⃣</button><button class="finger" onclick="show(4)">4️⃣</button>
-<button class="finger" onclick="show(5)">5️⃣</button><button class="finger" onclick="show(6)">6️⃣</button>
-</div>
-
-<div id="score" style="font-size:28px;">P1: 0 | P2: 0 | Balls: 0/6 | Outs: 0</div>
-<button onclick="reset()" style="background:#ff9800;color:white;">Reset Game</button>
+  <h1>🦗 Minimal P2P WebRTC Demo</h1>
+  <div>
+    <button onclick="createOffer()">Create Offer (Host)</button>
+    <button onclick="createAnswer()">Create Answer (Join)</button>
+  </div>
+  <div>
+    <textarea id="signalIn" placeholder="Paste offer/answer here"></textarea>
+    <button onclick="setRemote()">Set Remote</button>
+  </div>
+  <div>
+    <textarea id="signalOut" readonly placeholder="Copy this offer/answer to other player"></textarea>
+  </div>
+  <div>
+    <input id="msg" placeholder="Type message...">
+    <button onclick="sendMsg()">Send</button>
+  </div>
+  <div id="log"></div>
 
 <script>
-let gameId = 'room_' + Math.random().toString(36).substr(2,6);
-let peerId = Math.random().toString(36).substr(2,6);
-let connected = false, myFinger=0, oppFinger=0, p1Score=0, p2Score=0, balls=0, outs=0, isMeP1=true;
+let pc, channel;
 
-document.getElementById('myId').value = gameId;
-updateStatus('Player 1: Copy your ID above → send to Player 2');
+function log(msg) {
+  document.getElementById('log').textContent += msg + '\n';
+}
 
-function updateStatus(msg) { document.getElementById('status').innerText = msg; }
-function updateScore() { document.getElementById('score').innerText = `P1:${p1Score} | P2:${p2Score} | Balls:${balls}/6 | Outs:${outs}`; }
-
-function connect() {
-  const friendId = document.getElementById('friendId').value;
-  if(!friendId) return alert('Enter friend ID first!');
-  connected = true;
-  updateStatus('✅ CONNECTED! Show fingers to play!');
-  
-  // Listen for opponent's finger
-  setInterval(() => {
-    localStorage[gameId + '_finger_' + peerId] = myFinger;
-    const opp = localStorage[gameId + '_finger_' + (peerId === 'p1' ? 'p2' : 'p1')];
-    if(opp && myFinger && oppFinger != opp) {
-      oppFinger = opp; checkMatch();
+function createPeer() {
+  pc = new RTCPeerConnection({ iceServers: [] });
+  pc.onicecandidate = e => {
+    if (e.candidate === null) {
+      document.getElementById('signalOut').value = JSON.stringify(pc.localDescription);
     }
-  }, 100);
+  };
+  pc.ondatachannel = e => {
+    channel = e.channel;
+    setupChannel();
+  };
 }
 
-function show(n) {
-  if(!connected || myFinger) return alert('Wait for result!');
-  myFinger = n;
-  updateStatus(`You showed ${n} 🤜 Waiting...`);
+function createOffer() {
+  createPeer();
+  channel = pc.createDataChannel('chat');
+  setupChannel();
+  pc.createOffer().then(d => pc.setLocalDescription(d));
 }
 
-function checkMatch() {
-  updateStatus(`Opponent: ${oppFinger}`);
-  if(myFinger === oppFinger) {
-    outs++; updateStatus('OUT! 🙅 Swap roles');
-    isMeP1 = !isMeP1;
-  } else {
-    if(isMeP1) p1Score += myFinger; else p2Score += myFinger;
-    balls++; updateStatus(`+${myFinger} RUNS! 🏏`);
-  }
-  myFinger = oppFinger = 0;
-  updateScore();
-  if(balls>=6 || outs>=3) updateStatus(`INNINGS END! P1:${p1Score} P2:${p2Score}`);
+function createAnswer() {
+  createPeer();
+  const offer = document.getElementById('signalIn').value;
+  if (!offer) return alert('Paste offer first!');
+  pc.setRemoteDescription(new RTCSessionDescription(JSON.parse(offer)))
+    .then(() => pc.createAnswer())
+    .then(answer => pc.setLocalDescription(answer));
 }
 
-function reset() {
-  p1Score=p2Score=balls=outs=0; myFinger=oppFinger=0; connected=false;
-  updateScore(); updateStatus('Player 1: Copy your ID → Player 2: Enter it');
+function setRemote() {
+  const desc = document.getElementById('signalIn').value;
+  if (!desc) return alert('Paste offer/answer!');
+  pc.setRemoteDescription(new RTCSessionDescription(JSON.parse(desc)));
+}
+
+function setupChannel() {
+  channel.onopen = () => log('✅ DataChannel open!');
+  channel.onmessage = e => log('Peer: ' + e.data);
+}
+
+function sendMsg() {
+  if (!channel || channel.readyState !== 'open') return alert('Channel not open!');
+  const msg = document.getElementById('msg').value;
+  channel.send(msg);
+  log('You: ' + msg);
+  document.getElementById('msg').value = '';
 }
 </script>
 </body>
