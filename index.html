@@ -1,56 +1,200 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>P2P WebRTC Demo</title>
+  <title>Hand Cricket Online</title>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@700;400&display=swap" rel="stylesheet">
   <style>
-    body { font-family: sans-serif; background: #f8f8f8; text-align: center; margin: 0; padding: 40px; }
-    textarea { width: 90%; height: 80px; margin: 10px 0; font-size: 16px; }
-    button { font-size: 18px; padding: 10px 20px; margin: 10px; }
-    #log { background: #222; color: #fff; padding: 10px; min-height: 60px; margin: 20px 0; border-radius: 8px; }
+    body {
+      font-family: 'Montserrat', sans-serif;
+      background: linear-gradient(135deg, #f9d423 0%, #ff4e50 100%);
+      min-height: 100vh;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    h1 {
+      font-size: 2.5rem;
+      margin-top: 40px;
+      color: #fff;
+      letter-spacing: 2px;
+      text-shadow: 2px 2px 8px #ff4e50a0;
+    }
+    #mainCard {
+      background: #fff;
+      border-radius: 18px;
+      box-shadow: 0 8px 32px 0 #ff4e5040;
+      padding: 32px 28px 18px 28px;
+      margin: 32px 0 0 0;
+      max-width: 420px;
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    #roomSection input {
+      font-size: 22px;
+      padding: 10px;
+      width: 140px;
+      border-radius: 10px;
+      border: 2px solid #f9d423;
+      margin-bottom: 10px;
+      background: #fffbe6;
+      text-align: center;
+      letter-spacing: 2px;
+    }
+    #roomSection button {
+      font-size: 18px;
+      padding: 10px 22px;
+      margin: 0 8px 10px 8px;
+      border-radius: 8px;
+      border: none;
+      background: linear-gradient(90deg, #f9d423 0%, #ff4e50 100%);
+      color: #fff;
+      font-weight: 700;
+      cursor: pointer;
+      box-shadow: 0 2px 8px #ff4e5040;
+      transition: background 0.2s, transform 0.2s;
+    }
+    #roomSection button:hover {
+      background: linear-gradient(90deg, #ff4e50 0%, #f9d423 100%);
+      transform: translateY(-2px) scale(1.04);
+    }
+    #roomStatus {
+      color: #ff4e50;
+      font-weight: 600;
+      margin-bottom: 10px;
+    }
+    #game {
+      margin-top: 18px;
+      width: 100%;
+    }
+    #turnInfo {
+      color: #ff4e50;
+      font-size: 1.3rem;
+      margin-bottom: 18px;
+      font-weight: 700;
+    }
+    #myScore, #peerScore {
+      color: #f9d423;
+      font-weight: 700;
+      font-size: 1.3em;
+      text-shadow: 1px 1px 4px #ff4e5040;
+    }
+    #fingers {
+      margin: 24px 0 18px 0;
+    }
+    #fingers button {
+      font-size: 1.5rem;
+      width: 54px;
+      height: 54px;
+      margin: 0 8px;
+      border-radius: 50%;
+      border: none;
+      background: linear-gradient(135deg, #f9d423 0%, #ff4e50 100%);
+      color: #fff;
+      font-weight: 700;
+      box-shadow: 0 2px 8px #ff4e5040;
+      cursor: pointer;
+      transition: background 0.2s, transform 0.2s;
+    }
+    #fingers button:hover {
+      background: linear-gradient(135deg, #ff4e50 0%, #f9d423 100%);
+      transform: scale(1.12);
+    }
+    #gameLog {
+      background: #fffbe6;
+      color: #333;
+      padding: 14px 10px;
+      border-radius: 10px;
+      min-height: 48px;
+      font-size: 1.08em;
+      margin-bottom: 10px;
+      box-shadow: 0 1px 4px #ff4e5020;
+      white-space: pre-line;
+    }
+    #log {
+      background: #222;
+      color: #fff;
+      padding: 10px;
+      min-height: 60px;
+      margin: 20px 0;
+      border-radius: 8px;
+      font-size: 0.98em;
+      max-width: 420px;
+      word-break: break-all;
+    }
+    input#msg {
+      font-size: 18px;
+      padding: 8px 12px;
+      border-radius: 8px;
+      border: 2px solid #f9d423;
+      margin: 10px 0 0 0;
+      width: 220px;
+      background: #fffbe6;
+    }
+    button {
+      font-family: 'Montserrat', sans-serif;
+    }
+    @media (max-width: 600px) {
+      #mainCard { padding: 16px 2vw 10px 2vw; }
+      #log { max-width: 98vw; }
+    }
   </style>
 </head>
 <body>
-  <h1>🦗 Minimal P2P WebRTC Demo</h1>
-  <div>
-    <button onclick="createOffer()">Create Offer (Host)</button>
-    <button onclick="createAnswer()">Create Answer (Join)</button>
-  </div>
-  <div>
-    <textarea id="signalIn" placeholder="Paste offer/answer here"></textarea>
-    <button onclick="setRemote()">Set Remote</button>
-  </div>
-  <div>
-    <textarea id="signalOut" readonly placeholder="Copy this offer/answer to other player"></textarea>
-    <button onclick="copySignalOut()">Copy Code</button>
-  </div>
 
-  <hr style="margin:40px 0;">
-  <div id="game" style="display:none;">
-    <h2 id="turnInfo">Waiting for connection...</h2>
-    <div style="font-size:22px;margin:10px 0;">
-      <span>My Score: <span id="myScore">0</span></span>
-      &nbsp;|&nbsp;
-      <span>Peer Score: <span id="peerScore">0</span></span>
+  <h1>🦗 Hand Cricket Online</h1>
+  <div id="mainCard">
+    <div id="roomSection">
+      <input id="roomInput" maxlength="6" placeholder="Room ID">
+      <button onclick="createRoom()">Create Room</button>
+      <button onclick="joinRoom()">Join Room</button>
+      <div id="roomStatus"></div>
     </div>
-    <div id="fingers" style="margin:20px 0;">
-      <button onclick="chooseFinger(1)">1</button>
-      <button onclick="chooseFinger(2)">2</button>
-      <button onclick="chooseFinger(3)">3</button>
-      <button onclick="chooseFinger(4)">4</button>
-      <button onclick="chooseFinger(5)">5</button>
+    <div id="game" style="display:none;">
+      <h2 id="turnInfo">Waiting for connection...</h2>
+      <div style="font-size:22px;margin:10px 0;">
+        <span>My Score: <span id="myScore">0</span></span>
+        &nbsp;|&nbsp;
+        <span>Peer Score: <span id="peerScore">0</span></span>
+      </div>
+      <div id="fingers">
+        <button onclick="chooseFinger(1)">1</button>
+        <button onclick="chooseFinger(2)">2</button>
+        <button onclick="chooseFinger(3)">3</button>
+        <button onclick="chooseFinger(4)">4</button>
+        <button onclick="chooseFinger(5)">5</button>
+      </div>
+      <div id="gameLog"></div>
     </div>
-    <div id="gameLog" style="background:#eee;padding:10px;border-radius:8px;min-height:40px;"></div>
+    <div style="margin-top:18px;">
+      <input id="msg" placeholder="Type message...">
+      <button onclick="sendMsg()">Send</button>
+    </div>
+    <div id="log"></div>
   </div>
-  <div>
-    <input id="msg" placeholder="Type message...">
-    <button onclick="sendMsg()">Send</button>
-  </div>
-  <div id="log"></div>
 
 
 
+<script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.6.1/firebase-database-compat.js"></script>
 <script src="lz-string.min.js"></script>
 <script>
+
+// --- Firebase config ---
+const firebaseConfig = {
+  apiKey: "AIzaSyA3ynYiHjw_C18XDXrZ15s7211GhSqSyUo",
+  authDomain: "hand-cricket-51764.firebaseapp.com",
+  projectId: "hand-cricket-51764",
+  storageBucket: "hand-cricket-51764.firebasestorage.app",
+  messagingSenderId: "227453166416",
+  appId: "1:227453166416:web:8d6b92be54e14464d58255"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+
 let pc, channel;
 let myScore = 0, peerScore = 0;
 let myTurn = false;
@@ -58,6 +202,8 @@ let myLastFinger = null, peerLastFinger = null;
 let isOut = false, peerIsOut = false;
 let isFirstInning = true, target = null;
 let isHost = false;
+let roomId = null;
+let isRoomCreator = false;
 
 function copySignalOut() {
   const ta = document.getElementById('signalOut');
@@ -78,10 +224,8 @@ function createPeer() {
     { urls: 'stun:stun.l.google.com:19302' }
   ] });
   pc.onicecandidate = e => {
-    if (e.candidate === null) {
-      // Compress the offer/answer before displaying
-      const sdp = JSON.stringify(pc.localDescription);
-      document.getElementById('signalOut').value = LZString.compressToBase64(sdp);
+    if (e.candidate) {
+      sendSignal('candidate', e.candidate);
     }
   };
   pc.ondatachannel = e => {
@@ -97,6 +241,73 @@ function createPeer() {
       log('🎉 Peers are fully connected!');
     }
   };
+}
+
+function sendSignal(type, data) {
+  if (!roomId) return;
+  db.ref('rooms/' + roomId + '/' + (isRoomCreator ? 'host' : 'joiner')).push({ type, data });
+}
+
+function listenForSignals() {
+  if (!roomId) return;
+  const peerKey = isRoomCreator ? 'joiner' : 'host';
+  db.ref('rooms/' + roomId + '/' + peerKey).on('child_added', snap => {
+    const msg = snap.val();
+    if (msg.type === 'offer') {
+      pc.setRemoteDescription(new RTCSessionDescription(msg.data));
+      createAnswerSignal();
+    } else if (msg.type === 'answer') {
+      pc.setRemoteDescription(new RTCSessionDescription(msg.data));
+    } else if (msg.type === 'candidate') {
+      pc.addIceCandidate(new RTCIceCandidate(msg.data));
+    }
+  });
+}
+
+function createRoom() {
+  roomId = Math.random().toString().slice(2,8);
+  isRoomCreator = true;
+  document.getElementById('roomInput').value = roomId;
+  document.getElementById('roomInput').disabled = true;
+  document.getElementById('roomStatus').textContent = 'Room created! Share this code: ' + roomId;
+  document.getElementById('roomSection').style.display = 'none';
+  startHost();
+}
+
+function joinRoom() {
+  roomId = document.getElementById('roomInput').value.trim();
+  if (!roomId || roomId.length !== 6) {
+    alert('Enter a valid 6-digit room code!');
+    return;
+  }
+  isRoomCreator = false;
+  document.getElementById('roomInput').disabled = true;
+  document.getElementById('roomStatus').textContent = 'Joining room: ' + roomId;
+  document.getElementById('roomSection').style.display = 'none';
+  startJoiner();
+}
+
+function startHost() {
+  createPeer();
+  channel = pc.createDataChannel('chat');
+  setupChannel();
+  pc.createOffer().then(offer => {
+    pc.setLocalDescription(offer);
+    sendSignal('offer', offer);
+  });
+  listenForSignals();
+}
+
+function startJoiner() {
+  createPeer();
+  listenForSignals();
+}
+
+function createAnswerSignal() {
+  pc.createAnswer().then(answer => {
+    pc.setLocalDescription(answer);
+    sendSignal('answer', answer);
+  });
 }
 
 function createOffer() {
