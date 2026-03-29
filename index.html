@@ -69,35 +69,70 @@
     #game {
       margin-top: 18px;
       width: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .score-row {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 24px;
+      margin-bottom: 10px;
+    }
+    .avatar {
+      width: 54px;
+      height: 54px;
+      border-radius: 50%;
+      background: #fffbe6;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 2.1rem;
+      box-shadow: 0 2px 8px #ff4e5040;
+      border: 2px solid #f9d423;
+      margin: 0 8px;
+    }
+    .score {
+      font-size: 2.1rem;
+      color: #f9d423;
+      font-weight: 900;
+      text-shadow: 1px 1px 8px #ff4e5040;
+      margin: 0 8px;
     }
     #turnInfo {
       color: #ff4e50;
       font-size: 1.3rem;
       margin-bottom: 18px;
       font-weight: 700;
-    }
-    #myScore, #peerScore {
-      color: #f9d423;
-      font-weight: 700;
-      font-size: 1.3em;
-      text-shadow: 1px 1px 4px #ff4e5040;
+      text-align: center;
     }
     #fingers {
       margin: 24px 0 18px 0;
+      display: flex;
+      justify-content: center;
+      gap: 12px;
     }
     #fingers button {
-      font-size: 1.5rem;
-      width: 54px;
-      height: 54px;
-      margin: 0 8px;
+      font-size: 2.1rem;
+      width: 60px;
+      height: 60px;
+      margin: 0;
       border-radius: 50%;
       border: none;
       background: linear-gradient(135deg, #f9d423 0%, #ff4e50 100%);
       color: #fff;
-      font-weight: 700;
+      font-weight: 900;
       box-shadow: 0 2px 8px #ff4e5040;
       cursor: pointer;
-      transition: background 0.2s, transform 0.2s;
+      transition: background 0.2s, transform 0.2s, box-shadow 0.2s;
+      outline: none;
+      position: relative;
+    }
+    #fingers button.selected {
+      box-shadow: 0 0 0 4px #f9d42380, 0 2px 8px #ff4e5040;
+      background: linear-gradient(135deg, #ff4e50 0%, #f9d423 100%);
+      transform: scale(1.18);
     }
     #fingers button:hover {
       background: linear-gradient(135deg, #ff4e50 0%, #f9d423 100%);
@@ -113,6 +148,9 @@
       margin-bottom: 10px;
       box-shadow: 0 1px 4px #ff4e5020;
       white-space: pre-line;
+      text-align: left;
+      width: 100%;
+      max-width: 340px;
     }
     #log {
       background: #222;
@@ -155,10 +193,12 @@
     </div>
     <div id="game" style="display:none;">
       <h2 id="turnInfo">Waiting for connection...</h2>
-      <div style="font-size:22px;margin:10px 0;">
-        <span>My Score: <span id="myScore">0</span></span>
-        &nbsp;|&nbsp;
-        <span>Peer Score: <span id="peerScore">0</span></span>
+      <div class="score-row">
+        <div class="avatar" id="myAvatar" title="You">🧑</div>
+        <div class="score" id="myScore">0</div>
+        <span style="font-size:1.5rem;color:#ff4e50;font-weight:700;">vs</span>
+        <div class="score" id="peerScore">0</div>
+        <div class="avatar" id="peerAvatar" title="Peer">👤</div>
       </div>
       <div id="fingers">
         <button onclick="chooseFinger(1)">1</button>
@@ -269,8 +309,12 @@ function createRoom() {
   isRoomCreator = true;
   document.getElementById('roomInput').value = roomId;
   document.getElementById('roomInput').disabled = true;
-  document.getElementById('roomStatus').textContent = 'Room created! Share this code: ' + roomId;
-  document.getElementById('roomSection').style.display = 'none';
+  // Show the room code and sharing instructions, but hide only the buttons and input
+  document.getElementById('roomStatus').innerHTML = '<b>Room created!</b><br>Share this code with your friend:<br><span style="font-size:1.7em;color:#ff4e50;font-weight:900;letter-spacing:2px;">' + roomId + '</span>';
+  // Hide only the input and buttons, keep status visible
+  document.getElementById('roomInput').style.display = 'none';
+  var btns = document.querySelectorAll('#roomSection button');
+  btns.forEach(btn => btn.style.display = 'none');
   startHost();
 }
 
@@ -416,6 +460,12 @@ function updateScores() {
 function chooseFinger(num) {
   if (!myTurn || isOut) return;
   myLastFinger = num;
+  // Animate selection
+  Array.from(document.querySelectorAll('#fingers button')).forEach(btn => btn.classList.remove('selected'));
+  document.querySelector(`#fingers button:nth-child(${num})`).classList.add('selected');
+  setTimeout(() => {
+    Array.from(document.querySelectorAll('#fingers button')).forEach(btn => btn.classList.remove('selected'));
+  }, 600);
   channel.send(JSON.stringify({ type: 'finger', value: num }));
   logGame('You showed: ' + num);
   checkBothFingers();
