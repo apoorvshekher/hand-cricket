@@ -23,6 +23,24 @@
     <textarea id="signalOut" readonly placeholder="Copy this offer/answer to other player"></textarea>
     <button onclick="copySignalOut()">Copy Code</button>
   </div>
+
+  <hr style="margin:40px 0;">
+  <div id="game" style="display:none;">
+    <h2 id="turnInfo">Waiting for connection...</h2>
+    <div style="font-size:22px;margin:10px 0;">
+      <span>My Score: <span id="myScore">0</span></span>
+      &nbsp;|&nbsp;
+      <span>Peer Score: <span id="peerScore">0</span></span>
+    </div>
+    <div id="fingers" style="margin:20px 0;">
+      <button onclick="chooseFinger(1)">1</button>
+      <button onclick="chooseFinger(2)">2</button>
+      <button onclick="chooseFinger(3)">3</button>
+      <button onclick="chooseFinger(4)">4</button>
+      <button onclick="chooseFinger(5)">5</button>
+    </div>
+    <div id="gameLog" style="background:#eee;padding:10px;border-radius:8px;min-height:40px;"></div>
+  </div>
   <div>
     <input id="msg" placeholder="Type message...">
     <button onclick="sendMsg()">Send</button>
@@ -30,9 +48,16 @@
   <div id="log"></div>
 
 
+
 <script src="lz-string.min.js"></script>
 <script>
 let pc, channel;
+let myScore = 0, peerScore = 0;
+let myTurn = false;
+let myLastFinger = null, peerLastFinger = null;
+let isOut = false, peerIsOut = false;
+let isFirstInning = true, target = null;
+let isHost = false;
 
 function copySignalOut() {
   const ta = document.getElementById('signalOut');
@@ -129,10 +154,133 @@ function setRemote() {
 }
 
 function setupChannel() {
-  channel.onopen = () => log('✅ DataChannel open! You can now chat.');
+  channel.onopen = () => {
+    log('✅ DataChannel open! You can now chat.');
+    document.getElementById('game').style.display = '';
+    document.getElementById('turnInfo').textContent = 'Waiting for peer...';
+    // Decide who bats first: host bats first
+    myTurn = isHost = (channel.label === 'chat');
+    updateTurnInfo();
+    if (myTurn) logGame('You bat first!');
+    else logGame('Peer bats first!');
+  };
   channel.onclose = () => log('⚠️ DataChannel closed.');
   channel.onerror = e => log('❌ DataChannel error: ' + e);
-  channel.onmessage = e => log('Peer: ' + e.data);
+  channel.onmessage = e => handleGameMessage(e.data);
+}
+
+function logGame(msg) {
+  document.getElementById('gameLog').textContent += msg + '\n';
+  document.getElementById('gameLog').scrollTop = document.getElementById('gameLog').scrollHeight;
+}
+
+function updateTurnInfo() {
+  if (isOut && peerIsOut) {
+    // Game over
+    if (myScore > peerScore) document.getElementById('turnInfo').textContent = '🏆 You Win!';
+    else if (myScore < peerScore) document.getElementById('turnInfo').textContent = '😢 You Lose!';
+    else document.getElementById('turnInfo').textContent = '🤝 Draw!';
+    document.getElementById('fingers').style.display = 'none';
+    return;
+  }
+  if (isOut) {
+    document.getElementById('turnInfo').textContent = 'You are OUT! Waiting for peer...';
+    document.getElementById('fingers').style.display = 'none';
+    return;
+  }
+  if (peerIsOut) {
+    document.getElementById('turnInfo').textContent = 'Peer is OUT! Your turn.';
+    document.getElementById('fingers').style.display = '';
+    return;
+  }
+  document.getElementById('turnInfo').textContent = myTurn ? 'Your turn: Choose fingers' : 'Peer turn: Wait...';
+  document.getElementById('fingers').style.display = myTurn ? '' : 'none';
+}
+
+function updateScores() {
+  document.getElementById('myScore').textContent = myScore;
+  document.getElementById('peerScore').textContent = peerScore;
+}
+
+function chooseFinger(num) {
+  if (!myTurn || isOut) return;
+  myLastFinger = num;
+  channel.send(JSON.stringify({ type: 'finger', value: num }));
+  logGame('You showed: ' + num);
+  checkBothFingers();
+  myTurn = false;
+  updateTurnInfo();
+}
+
+function handleGameMessage(data) {
+  // Try to parse as JSON, else treat as chat
+  try {
+    const msg = JSON.parse(data);
+    if (msg.type === 'finger') {
+      peerLastFinger = msg.value;
+      logGame('Peer showed: ' + peerLastFinger);
+      checkBothFingers();
+      myTurn = true;
+      updateTurnInfo();
+    }
+  } catch (e) {
+    // Fallback: treat as chat
+    log('Peer: ' + data);
+  }
+}
+
+function checkBothFingers() {
+  if (myLastFinger !== null && peerLastFinger !== null) {
+    // Batting: if same, OUT, else add to score
+    if (myTurn) {
+      // I am batting
+      if (myLastFinger === peerLastFinger) {
+        logGame('You are OUT!');
+        isOut = true;
+        if (isFirstInning) {
+          isFirstInning = false;
+          target = myScore + 1;
+          logGame('Target for peer: ' + target);
+          // Switch roles
+          [myScore, peerScore] = [peerScore, myScore];
+          [isOut, peerIsOut] = [peerIsOut, isOut];
+        }
+      } else {
+        myScore += myLastFinger;
+        logGame('You scored ' + myLastFinger + '!');
+      }
+    } else {
+      // Peer is batting
+      if (myLastFinger === peerLastFinger) {
+        logGame('Peer is OUT!');
+        peerIsOut = true;
+        if (isFirstInning) {
+          isFirstInning = false;
+          target = peerScore + 1;
+          logGame('Target for you: ' + target);
+          // Switch roles
+          [myScore, peerScore] = [peerScore, myScore];
+          [isOut, peerIsOut] = [peerIsOut, isOut];
+        }
+      } else {
+        peerScore += peerLastFinger;
+        logGame('Peer scored ' + peerLastFinger + '!');
+      }
+    }
+    updateScores();
+    myLastFinger = null;
+    peerLastFinger = null;
+    // Check for win in second inning
+    if (!isFirstInning && (isOut || peerIsOut)) {
+      if (myScore >= target) {
+        isOut = peerIsOut = true;
+        updateTurnInfo();
+      } else if (peerScore >= target) {
+        isOut = peerIsOut = true;
+        updateTurnInfo();
+      }
+    }
+  }
 }
 
 function sendMsg() {
