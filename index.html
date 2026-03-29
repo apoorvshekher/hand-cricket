@@ -29,6 +29,8 @@
   </div>
   <div id="log"></div>
 
+
+<script src="lz-string.min.js"></script>
 <script>
 let pc, channel;
 
@@ -52,7 +54,9 @@ function createPeer() {
   ] });
   pc.onicecandidate = e => {
     if (e.candidate === null) {
-      document.getElementById('signalOut').value = JSON.stringify(pc.localDescription);
+      // Compress the offer/answer before displaying
+      const sdp = JSON.stringify(pc.localDescription);
+      document.getElementById('signalOut').value = LZString.compressToBase64(sdp);
     }
   };
   pc.ondatachannel = e => {
@@ -79,22 +83,40 @@ function createOffer() {
 
 function createAnswer() {
   createPeer();
-  const offer = document.getElementById('signalIn').value;
-  if (!offer) return alert('Paste offer first!');
-  pc.setRemoteDescription(new RTCSessionDescription(JSON.parse(offer)))
+  const offerCompressed = document.getElementById('signalIn').value.trim();
+  if (!offerCompressed) return alert('Paste offer first!');
+  let offerJson;
+  try {
+    offerJson = LZString.decompressFromBase64(offerCompressed);
+    if (!offerJson) throw new Error('Invalid compressed code');
+  } catch (e) {
+    log('❌ Invalid or corrupt code.');
+    alert('Invalid or corrupt code!');
+    return;
+  }
+  pc.setRemoteDescription(new RTCSessionDescription(JSON.parse(offerJson)))
     .then(() => pc.createAnswer())
     .then(answer => pc.setLocalDescription(answer));
 }
 
 function setRemote() {
-  const desc = document.getElementById('signalIn').value;
-  if (!desc) {
+  const descCompressed = document.getElementById('signalIn').value.trim();
+  if (!descCompressed) {
     log('⚠️ Please paste offer/answer before setting remote.');
     alert('Paste offer/answer!');
     return;
   }
+  let descJson;
   try {
-    pc.setRemoteDescription(new RTCSessionDescription(JSON.parse(desc)))
+    descJson = LZString.decompressFromBase64(descCompressed);
+    if (!descJson) throw new Error('Invalid compressed code');
+  } catch (e) {
+    log('❌ Invalid or corrupt code.');
+    alert('Invalid or corrupt code!');
+    return;
+  }
+  try {
+    pc.setRemoteDescription(new RTCSessionDescription(JSON.parse(descJson)))
       .then(() => log('✅ Remote description set.'))
       .catch(e => {
         log('❌ Error setting remote: ' + e);
