@@ -1,110 +1,101 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>P2P Hand Cricket</title>
-  <style>
-    body { font-family: Arial; text-align: center; margin: 20px; }
-    button { padding: 10px 20px; margin: 5px; font-size: 18px; }
-    textarea { width: 400px; height: 100px; margin: 10px; }
-    #status, #scores { font-size: 24px; font-weight: bold; }
-    .finger-btn { background: #4CAF50; color: white; border: none; cursor: pointer; }
-    .finger-btn:hover { background: #45a049; }
-  </style>
+  <title>P2P Hand Cricket FIXED</title>
+  <style>body{font-family:Arial;text-align:center;margin:20px;}button{padding:10px 20px;margin:5px;font-size:18px;}.finger-btn{background:#4CAF50;color:white;border:none;cursor:pointer;font-size:20px;width:50px;height:50px;margin:5px;border-radius:50%;}.finger-btn:hover{background:#45a049;}textarea{width:500px;height:120px;margin:10px;font-family:monospace;font-size:12px;}#status,#scores{font-size:24px;font-weight:bold;}</style>
 </head>
 <body>
-  <h1>Hand Cricket P2P</h1>
-  <div id="status">Welcome! Decide who is Player 1 (create offer).</div>
-  <div id="scores">P1: 0 | P2: 0 | Balls: 0/6 | Outs: 0/3</div>
-  <p><button id="createOffer">Player 1: Create Offer</button></p>
-  <p><label>Paste Offer Here:</label><br><textarea id="offer"></textarea></p>
-  <p><button id="createAnswer">Player 2: Create Answer</button></p>
-  <p><label>Copy Answer to Share:</label><br><textarea id="answer"></textarea></p>
-  <p>Your Fingers: <button class="finger-btn" onclick="sendFinger(1)">1</button>
-    <button class="finger-btn" onclick="sendFinger(2)">2</button><button class="finger-btn" onclick="sendFinger(3)">3</button>
-    <button class="finger-btn" onclick="sendFinger(4)">4</button><button class="finger-btn" onclick="sendFinger(5)">5</button>
-    <button class="finger-btn" onclick="sendFinger(6)">6</button></p>
-  <p><button onclick="newInnings()">New Innings</button> <button onclick="resetGame()">Reset Game</button></p>
+  <h1>🦗 Hand Cricket P2P (Fixed)</h1>
+  <div id="status">Start: Player 1 clicks CREATE OFFER</div>
+  <div id="scores">P1:0 | P2:0 | Balls:0/6 | Outs:0/3</div>
+  
+  <p><button onclick="createOffer()" style="background:#ff9800;color:white">🚀 CREATE OFFER (Player 1)</button></p>
+  <p><label>📋 PASTE OFFER HERE:</label><br><textarea id="offerBox" placeholder="Paste the FULL text from opponent (includes { })"></textarea></p>
+  <p><button onclick="setRemote()" style="background:#2196F3;color:white">✅ SET OPPONENT OFFER (Both players)</button></p>
+  <p><label>📤 COPY ANSWER FOR FRIEND:</label><br><textarea id="answerBox" readonly placeholder="Auto-fills after setting offer"></textarea></p>
+  
+  <div style="background:#f0f0f0;padding:10px;margin:20px;">
+    <h3>Finger Buttons (after "Connected!"):</h3>
+    <button class="finger-btn" onclick="sendFinger(1)">1️⃣</button>
+    <button class="finger-btn" onclick="sendFinger(2)">2️⃣</button>
+    <button class="finger-btn" onclick="sendFinger(3)">3️⃣</button>
+    <button class="finger-btn" onclick="sendFinger(4)">4️⃣</button>
+    <button class="finger-btn" onclick="sendFinger(5)">5️⃣</button>
+    <button class="finger-btn" onclick="sendFinger(6)">6️⃣</button>
+  </div>
+  <p><button onclick="newGame()" style="background:#4CAF50;color:white">🔄 New Game</button></p>
 
   <script>
-    let pc, dc, myFinger = 0, opponentFinger = 0;
-    let p1Score = 0, p2Score = 0, balls = 0, outs = 0, isP1Batting = true, gameState = 'waiting';
-    const config = { iceServers: [{urls: 'stun:stun.l.google.com:19302'}, {urls: 'stun:stun1.l.google.com:19302'}] };
-
-    function updateStatus(msg) { document.getElementById('status').innerText = msg; }
-    function updateScores() { document.getElementById('scores').innerText = `P1: ${p1Score} | P2: ${p2Score} | Balls: ${balls}/6 | Outs: ${outs}/3`; }
-
-    // Init WebRTC
-    function init() {
-      pc = new RTCPeerConnection(config);
-      pc.onicecandidate = () => {}; // Auto-handled in SDP
-      dc = pc.createDataChannel('game');
-      dc.onopen = () => { updateStatus('Connected! Take turns showing fingers.'); gameState = 'playing'; };
-      dc.onmessage = (e) => {
-        const data = JSON.parse(e.data);
-        if (data.type === 'finger') {
-          opponentFinger = data.value;
-          checkResult();
-        }
+    let pc, dc, myFinger=0, oppFinger=0, p1Score=0, p2Score=0, balls=0, outs=0, isP1=true, connected=false;
+    
+    function log(msg){console.log('[DEBUG]',msg);document.getElementById('status').innerText=msg;}
+    
+    function initPC(){
+      pc?.close();
+      pc = new RTCPeerConnection({iceServers:[{urls:'stun:stun.l.google.com:19302'},{urls:'stun:stun1.l.google.com:19302'}]});
+      dc = pc.createDataChannel('cricket');
+      dc.onopen=()=>{connected=true;log('✅ CONNECTED! Play fingers!');};
+      dc.onmessage=e=>{
+        const data=JSON.parse(e.data);
+        if(data.type==='finger'){oppFinger=data.value;checkMatch();}
       };
+      pc.onconnectionstatechange=()=>{log(`ICE: ${pc.connectionState}`);};
     }
-    init();
-
-    document.getElementById('createOffer').onclick = async () => {
-      const offer = await pc.createOffer(); await pc.setLocalDescription(offer);
-      document.getElementById('offer').value = JSON.stringify(offer);
-      updateStatus('Offer created. Share the textarea text with Player 2.');
-    };
-
-    document.getElementById('createAnswer').onclick = async () => {
-      try {
-        const offer = JSON.parse(document.getElementById('offer').value);
+    initPC();
+    
+    async function createOffer(){
+      log('Creating offer...');
+      const offer=await pc.createOffer();
+      await pc.setLocalDescription(offer);
+      document.getElementById('offerBox').value=JSON.stringify(offer, null, 2);
+      log('✅ OFFER READY! Copy top box & send to friend');
+    }
+    
+    async function setRemote(){
+      const text=document.getElementById('offerBox').value.trim();
+      if(!text){alert('🚫 Paste offer first!');return;}
+      try{
+        const offer=JSON.parse(text);
+        log('Parsing offer...');
         await pc.setRemoteDescription(offer);
-        const answer = await pc.createAnswer();
+        const answer=await pc.createAnswer();
         await pc.setLocalDescription(answer);
-        document.getElementById('answer').value = JSON.stringify(answer);
-        updateStatus('Answer created. Send back to Player 1.');
-      } catch(e) { alert('Paste valid offer first!'); }
-    };
-
-    async function sendFinger(num) {
-      if (gameState !== 'playing' || dc.readyState !== 'open') { alert('Connect first!'); return; }
-      if (myFinger !== 0) { alert('Wait for result!'); return; }
-      myFinger = num;
-      dc.send(JSON.stringify({type: 'finger', value: num}));
-      updateStatus(`You showed ${num}. Waiting for opponent...`);
-    }
-
-    function checkResult() {
-      if (myFinger === opponentFinger) {
-        outs++;
-        updateStatus('OUT! Roles swap.');
-        isP1Batting = !isP1Batting;
-      } else {
-        if (isP1Batting) p1Score += myFinger; else p2Score += myFinger;
-        balls++;
-        updateStatus(`Runs: ${myFinger}!`);
+        document.getElementById('answerBox').value=JSON.stringify(answer, null, 2);
+        log('✅ ANSWER READY! Copy BOTTOM box & send back');
+      }catch(e){
+        log(`❌ ERROR: ${e.message}`);
+        if(e.message.includes('Invalid')) alert('Invalid JSON! Copy FULL text with {} brackets');
+        else alert('Use Chrome/Firefox. Disable VPN/Firewall');
       }
-      myFinger = opponentFinger = 0;
-      updateScores();
-      if (outs >= 3 || balls >= 6) endInnings();
     }
-
-    function endInnings() {
-      updateStatus(`Innings over! P1:${p1Score} P2:${p2Score}`);
+    
+    function sendFinger(n){
+      if(!connected){alert('Connect first!');return;}
+      if(myFinger){alert('Wait result!');return;}
+      myFinger=n; dc.send(JSON.stringify({type:'finger',value:n}));
+      log(`You: ${n} 🤜 Waiting opponent...`);
     }
-
-    function newInnings() {
-      p1Score = p2Score = balls = outs = 0;
-      isP1Batting = true;
-      updateScores();
-      updateStatus('New innings!');
+    
+    function checkMatch(){
+      log(`Opponent showed: ${oppFinger}`);
+      if(myFinger===oppFinger){
+        outs++; log('OUT! 🙅‍♂️ Swap batting');
+        isP1=!isP1;
+      }else{
+        if(isP1) p1Score+=myFinger; else p2Score+=myFinger;
+        balls++; log(`RUNS +${myFinger}! 🏏`);
+      }
+      document.getElementById('scores').innerText=`P1:${p1Score}|P2:${p2Score}|Balls:${balls}/6|Outs:${outs}/3`;
+      myFinger=oppFinger=0;
+      if(balls>=6||outs>=3) log(`INNINGS END! P1:${p1Score} P2:${p2Score}`);
     }
-
-    function resetGame() {
-      p1Score = p2Score = 0; newInnings();
-      if (pc) pc.close();
-      init();
-      updateStatus('Game reset. Player 1 create offer.');
+    
+    function newGame(){
+      p1Score=p2Score=balls=outs=0;isP1=true;connected=false;
+      document.getElementById('offerBox').value='';
+      document.getElementById('answerBox').value='';
+      document.getElementById('scores').innerText='P1:0|P2:0|Balls:0/6|Outs:0/3';
+      initPC(); log('New game ready!');
     }
   </script>
 </body>
